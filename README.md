@@ -53,8 +53,11 @@ make a new one the same way.
   project appears in the home slideshow, and its **photos**:
   - Drop photos in. They're resized for the web automatically (JPG or PNG; iPhone
     HEIC photos need converting first).
-  - Each photo's **caption** becomes the big chapter title on the project page while
-    the photo pans on the right, so good captions make it feel like a guided tour.
+  - Each photo's **Title** becomes the big chapter title on the project page while the
+    photo pans on the right. The optional **Text** box adds a paragraph or two under it.
+    Good titles and short texts make it feel like a guided tour.
+  - The editor also saves two smaller copies of each photo (`.md.jpg` and `.sm.jpg`), so
+    phones and older computers load small images instead of full-size ones.
   - Drag photos to reorder, click **Make cover**, or click ✕ to remove one.
 - **Preview changes:** see your draft on the real design before anyone else does.
 - **Publish:** saves everything to GitHub at once. The website updates about a minute
@@ -90,3 +93,13 @@ favicon.svg       the little "LK" icon in the browser tab
 
 The site loads one small free script from the internet for smooth scrolling (Lenis).
 If it's ever unavailable, the site still works with normal scrolling.
+
+### Speed on older computers and phones
+- The site checks the device. On slower machines (few processor cores, little memory,
+  no graphics acceleration, data-saver on), or if scrolling is measured below about 45 fps,
+  it switches to **lite mode**: same design, with native scrolling and without the
+  heaviest effects (film grain, slow image drift, mouse parallax, custom cursor).
+- To test either mode yourself, add `?lite=1` or `?lite=0` to the address,
+  e.g. `https://yourusername.github.io/?lite=1`.
+- If you upload photos straight to GitHub instead of through the editor, they still work.
+  The site just uses the full-size file when there are no smaller copies.

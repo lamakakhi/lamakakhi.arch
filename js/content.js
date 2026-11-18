@@ -45,7 +45,9 @@ const SITE = {
 
    Photos: put them in a folder  images/<project-slug>/  and list them in "images".
    Each photo becomes a chapter on the project page — its "caption" is the
-   chapter title. (Easiest: use the site editor at your-site/admin.)
+   chapter title, and an optional "text" adds a paragraph under it, e.g.
+     { src: "images/x/01.jpg", caption: "Ground floor plan", text: "Some words." },
+   (Easiest: use the site editor at your-site/admin.)
    "hero": true shows the project in the big slideshow on the home page.
    -------------------------------------------------------------------------- */
 const PROJECTS = [

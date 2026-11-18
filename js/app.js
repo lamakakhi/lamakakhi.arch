@@ -1,5 +1,6 @@
 /* ==========================================================================
-   Site engine. You shouldn't need to edit this file — edit js/content.js.
+   Site engine. You shouldn't need to edit this file — edit js/content.js
+   (or use the site editor at your-site/admin).
    ========================================================================== */
 (function (G_SITE, G_PROJECTS) {
   "use strict";
@@ -13,11 +14,37 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const two = n => String(n).padStart(2, "0");
   const num = i => two(i + 1);
-  const view = $("#view");
+  const view = $("#view"), root = document.documentElement;
   const fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const YEAR = new Date().getFullYear();
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+
+  /* ---------- performance: "lite" mode for slow or software-rendered devices ---------- */
+  const QS = new URLSearchParams(location.search);
+  function softwareGPU() {
+    try {
+      const g = document.createElement("canvas").getContext("webgl");
+      if (!g) return true;
+      const ext = g.getExtension("WEBGL_debug_renderer_info");
+      const r = ext ? String(g.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "";
+      return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(r);
+    } catch (e) { return false; }
+  }
+  let LITE = QS.get("lite") === "1" ? true : QS.get("lite") === "0" ? false :
+    !!(reduce || (navigator.connection && navigator.connection.saveData) ||
+      (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+      (navigator.deviceMemory && navigator.deviceMemory <= 4) || softwareGPU());
+  if (LITE) root.classList.add("lite");
+
+  /* ---------- images: smaller versions (name.sm.jpg / name.md.jpg) when available ---------- */
+  window.lkImg = img => { if (img.dataset.fixed) return; img.dataset.fixed = "1"; img.removeAttribute("srcset"); if (img.dataset.full) img.src = img.dataset.full; };
+  const hasVariants = s => typeof s === "string" && /^images\/.+\.jpe?g$/i.test(s) && !/\.(sm|md)\.jpe?g$/i.test(s);
+  const variant = (s, tag) => s.replace(/\.(jpe?g)$/i, `.${tag}.$1`);
+  function pic(src, sizes, { cls = "", alt = "", eager = false } = {}) {
+    const ss = hasVariants(src) ? ` srcset="${esc(variant(src, "sm"))} 800w, ${esc(variant(src, "md"))} 1600w, ${esc(src)} 2200w" sizes="${sizes}" data-full="${esc(src)}" onerror="lkImg(this)"` : "";
+    return `<img class="${cls}" src="${esc(src)}"${ss} alt="${esc(alt)}" loading="${eager ? "eager" : "lazy"}" decoding="async">`;
+  }
 
   /* ---------- placeholder drawings (only for projects without photos yet) ---------- */
   const PALS = [["#d9d2c5", "#efe9dd", "#3b3a37", "#8c8577"], ["#aeb9b8", "#dfe6e4", "#26302f", "#5f6e6c"], ["#d6b99a", "#f0dfc9", "#4a3322", "#9b7552"], ["#d9a58b", "#f3d9c9", "#4a2418", "#a4553a"]];
@@ -75,12 +102,12 @@
     const disc = SITE.disciplines || [], xp = SITE.expertise || [];
     const strip = arr => { const one = arr.map(d => `<span>${esc(d)}</span><i>✦</i>`).join(""); return one + one + one + one; };
     const pool = imagePool(), rowA = pool.filter((_, k) => k % 2 === 0), rowB = pool.filter((_, k) => k % 2 === 1);
-    const imgs = arr => arr.map(s => `<img class="fade" src="${esc(s)}" alt="" loading="lazy" decoding="async">`).join("");
+    const imgs = arr => arr.map(s => pic(s, "(max-width:820px) 60vw, 26vw", { cls: "fade" })).join("");
     const notes = (SITE.heroNotes || []).map(esc).join(" &nbsp;//&nbsp; ");
 
     view.innerHTML = `
     <section class="hero" id="top">
-      <div class="hero-media"><div class="hero-move">${hl.map((o, k) => `<div class="slide${k ? "" : " on"}" style="background-image:url('${heroImg(o.p, o.i)}')"></div>`).join("")}</div></div>
+      <div class="hero-media"><div class="hero-move">${hl.map((o, k) => `<div class="slide${k ? "" : " on"}">${pic(heroImg(o.p, o.i), "100vw", { eager: !k })}</div>`).join("")}</div></div>
       <div class="hero-dim"></div><div class="hero-shade"></div><div class="hero-grain"></div>
       <div class="hero-top">
         <p class="h-role">${esc(SITE.role).replace("&amp;", "<em>&amp;</em>")}</p>
@@ -99,14 +126,14 @@
     <div class="above">
       ${SITE.statement ? `<section class="statement" id="intro"><p class="caps label">(01) — Intro</p><p class="st-text">${lit(SITE.statement)}</p></section>` : `<span id="intro"></span>`}
 
-      ${disc.length ? `<div class="smq" data-dir="1"><div class="smq-track">${strip(disc)}</div></div><div class="smq outline" data-dir="-1"><div class="smq-track">${strip([...disc].reverse())}</div></div>` : ""}
+      ${disc.length ? `<div class="smq" data-dir="1"><div class="smq-move"><div class="smq-track">${strip(disc)}</div></div></div><div class="smq outline" data-dir="-1"><div class="smq-move"><div class="smq-track">${strip([...disc].reverse())}</div></div></div>` : ""}
 
       <section class="work" id="work">
         <div class="sec-head rv"><div><span class="caps sec-num">(02) — Selected work</span><h2 class="big">Selected<br><span class="light">work</span></h2></div>
           <p>${two(PROJECTS.length)} projects across architecture, urban design and building performance. Hover to explore — click to step inside.</p></div>
         <div class="acc" id="acc">${PROJECTS.map((p, i) => `
           <a class="panel" href="#/p/${p.slug}" data-cursor="Open">
-            <div class="pimg" style="background-image:url('${cover(p, i)}')"></div><div class="pdim"></div>
+            <div class="pimg">${pic(cover(p, i), "(max-width:820px) 100vw, 72vw")}</div><div class="pdim"></div>
             <span class="pnum">${num(i)}</span><span class="pvert">${esc(p.title)}</span>
             <div class="pinfo"><h3>${esc(p.title)}</h3><div><p class="caps meta">${metaLine(p)}</p><p class="sum">${esc(p.summary)}</p></div><span class="pbtn caps">View project →</span></div>
           </a>`).join("")}
@@ -119,7 +146,7 @@
         <div class="xlist">${xp.map((x, k) => `
           <div class="xrow${k ? "" : " open"}">
             <button class="xhead" aria-expanded="${!k}"><span class="caps xn">${num(k)}</span><span class="xt">${esc(x[0])}</span><span class="xplus"></span></button>
-            <div class="xbody"><div class="xinner"><div class="xgrid"><p>${esc(x[1])}</p>${x[2] ? `<div class="ximg"><div style="background-image:url('${esc(x[2])}')"></div></div>` : ""}</div></div></div>
+            <div class="xbody"><div class="xinner"><div class="xgrid"><p>${esc(x[1])}</p>${x[2] ? `<div class="ximg"><div>${pic(x[2], "(max-width:820px) 100vw, 34vw")}</div></div>` : ""}</div></div></div>
           </div>`).join("")}</div>
       </section>` : ""}
 
@@ -170,7 +197,7 @@
     view.innerHTML = `
     <article class="project">
       <section class="p-hero" id="top">
-        <div class="p-media"><div class="im" style="background-image:url('${cover(p, i)}')"></div></div>
+        <div class="p-media"><div class="im">${pic(cover(p, i), "100vw", { eager: true })}</div></div>
         <div class="hero-dim"></div><div class="hero-shade"></div><div class="hero-grain"></div>
         <a href="#/" data-go="work" class="back caps"><span class="roll"><span data-t="← All projects">← All projects</span></span></a>
         <div class="p-title">
@@ -195,13 +222,14 @@
               <span class="ch-big" aria-hidden="true">${two(k + 1)}</span>
               <p class="caps ch-n">${two(k + 1)} / ${two(imgs.length)}</p>
               <h3>${esc(m.caption || p.title)}</h3>
+              ${m.text ? `<div class="ch-p">${String(m.text).split(/\n\s*\n/).filter(Boolean).map(x => `<p>${esc(x)}</p>`).join("")}</div>` : ""}
               <button class="open-lb caps" data-k="${k + 1}" data-cursor="Zoom">View full image ↗</button>
-              <figure class="ch-img" data-k="${k + 1}"><img class="fade" src="${esc(m.src)}" alt="${esc(m.caption || p.title)}" loading="lazy" decoding="async"></figure>
+              <figure class="ch-img" data-k="${k + 1}">${pic(m.src, "100vw", { cls: "fade", alt: m.caption || p.title })}</figure>
             </section>`).join("")}
           </div>
           <div class="p-right">
-            <div class="frame on" data-f="0"><div class="cam"><img src="${cover(p, i)}" alt=""></div></div>
-            ${imgs.map((m, k) => `<div class="frame" data-f="${k + 1}"><div class="cam"><img class="fade" src="${esc(m.src)}" alt="${esc(m.caption || "")}" loading="${k < 2 ? "eager" : "lazy"}" decoding="async"></div></div>`).join("")}
+            <div class="frame on" data-f="0"><div class="cam">${pic(cover(p, i), "(max-width:820px) 100vw, 80vw", { eager: true })}</div></div>
+            ${imgs.map((m, k) => `<div class="frame" data-f="${k + 1}"><div class="cam">${pic(m.src, "(max-width:820px) 100vw, 80vw", { cls: "fade", alt: m.caption || "", eager: k < 1 })}</div></div>`).join("")}
             <div class="p-prog"><i></i></div>
             <button class="p-zoom caps" id="pZoom" data-cursor="Zoom" data-magnetic>Full image ↗</button>
             <div class="p-hud"><span class="caps" id="hudCap">Overview</span><span class="count" id="hudN">00<small> / ${two(imgs.length)}</small></span></div>
@@ -209,7 +237,7 @@
         </div>
 
         <a class="next" href="#/p/${next.slug}" data-cursor="Next">
-          <div class="im" style="background-image:url('${cover(next, ni)}')"></div>
+          <div class="im">${pic(cover(next, ni), "70vw")}</div>
           <div class="next-in"><p class="caps">Next project — (${num(ni)})</p><h2 class="next-t">${esc(next.title)}</h2></div>
         </a>
         ${footer()}
@@ -218,94 +246,129 @@
     return true;
   }
 
-  /* ---------- smooth scroll ---------- */
+  /* ---------- smooth scroll (skipped in lite mode: native scrolling is smoother there) ---------- */
   let lenis = null;
-  try { if (window.Lenis && !reduce) lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.9, smoothWheel: true }); } catch (e) { lenis = null; }
+  try { if (window.Lenis && !LITE) lenis = new Lenis({ lerp: 0.12, wheelMultiplier: 1, smoothWheel: true }); } catch (e) { lenis = null; }
   const scrollTop = () => lenis ? lenis.scrollTo(0, { immediate: true, force: true }) : scrollTo(0, 0);
   function scrollToId(id, instant) {
     const el = id === "top" ? 0 : document.getElementById(id);
     if (el === null) return;
-    if (lenis) lenis.scrollTo(el, { immediate: !!instant, duration: 1.6, force: true });
+    if (lenis) lenis.scrollTo(el, { immediate: !!instant, duration: 1.4, force: true });
     else if (el === 0) scrollTo({ top: 0, behavior: instant ? "auto" : "smooth" });
     else el.scrollIntoView({ behavior: instant ? "auto" : "smooth" });
   }
   function lock(on) { document.body.classList.toggle("noscroll", on); if (lenis) on ? lenis.stop() : lenis.start(); }
+  function goLite() {
+    if (LITE) return; LITE = true; root.classList.add("lite");
+    if (lenis) { try { lenis.destroy(); } catch (e) { } lenis = null; root.classList.remove("lenis", "lenis-smooth"); }
+    M.tx = M.ty = 0;
+  }
 
-  /* ---------- per-frame animation ---------- */
+  /* ---------- per-frame animation ----------
+     All measuring happens once (layout cache), so each frame only writes styles.
+     Nothing is touched when the page isn't moving. */
   const S = { active: -1, captions: [], imgs: [] };
   const M = { x: 0, y: 0, tx: 0, ty: 0 };
   const PAT = [[1, -1], [-1, 1], [1, 1], [-1, -1], [0, 1], [1, 0]];
-  if (fine) addEventListener("pointermove", e => { M.tx = e.clientX / innerWidth - .5; M.ty = e.clientY / innerHeight - .5; });
+  if (fine) addEventListener("pointermove", e => { if (LITE) return; M.tx = e.clientX / innerWidth - .5; M.ty = e.clientY / innerHeight - .5; }, { passive: true });
 
+  const L = { dirty: true };
+  const docTop = el => { let t = 0; while (el) { t += el.offsetTop; el = el.offsetParent; } return t; };
+  const box = el => el ? { t: docTop(el), h: el.offsetHeight } : null;
   function cache() {
     S.hero = $(".hero, .p-hero"); S.move = $(".hero-move, .p-media"); S.bottom = $(".hero-bottom, .p-title"); S.top = $(".hero-top");
+    S.dim = S.hero && S.hero.querySelector(".hero-dim");
     S.words = $$(".st-text .w"); S.st = $(".st-text"); S.n = -1;
-    S.smq = $$(".smq").map(el => ({ tr: el.firstElementChild, dir: +el.dataset.dir || 1, unit: 1 }));
+    S.smq = $$(".smq").map(el => ({ el, tr: el.firstElementChild, track: el.querySelector(".smq-track"), dir: +el.dataset.dir || 1, unit: 1 }));
     S.chs = $$(".ch"); S.frames = $$(".frame"); S.left = $(".p-left"); S.prog = $(".p-prog");
-    S.portrait = $(".portrait"); S.pin = $(".arch-in");
-    S.hudCap = $("#hudCap"); S.hudN = $("#hudN"); S.active = -1; S.contact = $(".contact"); S.dark = null;
-    measure();
+    S.portrait = $(".portrait"); S.pin = $(".arch-in"); S.q = -1;
+    S.hudCap = $("#hudCap"); S.hudN = $("#hudN"); S.active = -1; S.contact = $(".contact");
+    S.heroOn = null; S.lastY = -1; S.camBusy = true; S.tone = "";
+    L.dirty = true;
   }
-  function measure() { (S.smq || []).forEach(o => o.unit = o.tr.scrollWidth / 4 || 1); }
-
+  function measure() {
+    L.ih = innerHeight; L.H = root.scrollHeight - L.ih;
+    L.st = box(S.st); L.contact = box(S.contact); L.left = box(S.left);
+    L.portrait = box(S.portrait); L.archH = S.pin ? S.pin.parentElement.offsetHeight : 0;
+    L.smq = S.smq.map(o => { o.unit = o.track.scrollWidth / 4 || 1; return box(o.el); });
+    L.chs = S.chs.map(c => ({ ...box(c), f: +c.dataset.f }));
+    L.dirty = false;
+  }
+  new ResizeObserver(() => { L.dirty = true; }).observe(view);
   const progEl = $("#progress");
-  let toneNow = "";
-  function navTone(y) {
-    let tone = "dark";
-    if (S.contact) { const r = S.contact.getBoundingClientRect(); if (r.top < 46 && r.bottom > 46) tone = "accent"; }
-    if (tone === "dark" && S.frames && S.frames.length && innerWidth > 820) {
-      const pr = S.frames[0].parentElement.getBoundingClientRect(), f = S.frames[Math.max(0, S.active)];
-      if (pr.top < 46 && pr.bottom > 46 && f && f.classList.contains("paper")) {
-        // only the right half of the header sits over the paper image
-        tone = "dark-paper";
-      }
-    }
-    const scrolled = y > 30 || tone !== "dark";
-    const key = tone + scrolled;
-    if (key === toneNow) return; toneNow = key;
-    const b = document.body.classList;
-    b.toggle("nav-accent", tone === "accent"); b.toggle("nav-paper", false); b.toggle("nav-scrolled", scrolled);
-  }
-  function tick(t) {
-    const y = scrollY, ih = innerHeight;
-    if (progEl) { const max = document.documentElement.scrollHeight - ih; progEl.style.transform = `scaleX(${max > 0 ? clamp(y / max, 0, 1).toFixed(4) : 0})`; }
-    M.x = lerp(M.x, M.tx, .05); M.y = lerp(M.y, M.ty, .05);
 
-    // hero: subtle mouse + scroll parallax
-    if (S.hero) {
-      const p = clamp(y / ih, 0, 1);
-      S.hero.style.setProperty("--p", p.toFixed(3));
-      if (S.move) S.move.style.transform = `translate3d(${(-M.x * 2.2).toFixed(3)}%,${(-M.y * 2.2 + p * 6).toFixed(3)}%,0) scale(${(1 + p * .06).toFixed(4)})`;
-      if (S.bottom) S.bottom.style.transform = `translate3d(${(M.x * .8).toFixed(3)}%,${(-p * 26).toFixed(2)}vh,0)`;
-      if (S.top) S.top.style.transform = `translate3d(${(M.x * 1.4).toFixed(3)}%,${(M.y * 6 - p * 30).toFixed(2)}px,0)`;
+  // frame-time probe: if real scrolling runs below ~45 fps, switch to lite mode automatically
+  const probe = { last: 0, d: [], done: !!QS.get("lite") };
+
+  function tick(t) {
+    if (L.dirty) measure();
+    const y = scrollY, ih = L.ih, moved = y !== S.lastY;
+    S.lastY = y;
+    let mouse = false;
+    if (!LITE && fine) {
+      const nx = lerp(M.x, M.tx, .06), ny = lerp(M.y, M.ty, .06);
+      mouse = Math.abs(nx - M.x) + Math.abs(ny - M.y) > .0004; M.x = nx; M.y = ny;
     }
-    // header shade adapts to what is underneath it
-    navTone(y);
-    // portrait drifts inside its arch and develops from duotone to colour
-    if (S.portrait && S.pin) {
-      const r = S.portrait.getBoundingClientRect();
-      if (r.bottom > 0 && r.top < ih) {
-        const lim = S.pin.parentElement.offsetHeight * .085; S.pin.style.transform = `translate3d(0,${clamp((r.top + r.height / 2 - ih / 2) * -.09, -lim, lim).toFixed(1)}px,0)`;
-        S.portrait.style.setProperty("--q", clamp((ih * .85 - r.top) / (ih * .75), 0, 1).toFixed(3));
+    if (!probe.done) {
+      if (moved && probe.last) probe.d.push(t - probe.last);
+      probe.last = moved ? t : 0;
+      if (probe.d.length >= 50) { const s = probe.d.sort((a, b) => a - b), med = s[s.length >> 1]; probe.done = true; if (med > 22) goLite(); }
+    }
+    if (!moved && !mouse && !S.camBusy) return;   // nothing changed → no work this frame
+
+    if (moved && progEl) progEl.style.transform = `scaleX(${L.H > 0 ? clamp(y / L.H, 0, 1).toFixed(4) : 0})`;
+
+    // hero: subtle mouse + scroll parallax (only while visible)
+    if (S.hero && (moved || mouse || S.heroOn === null)) {
+      const on = y < ih * 1.05;
+      if (on !== S.heroOn) { S.heroOn = on; S.hero.classList.toggle("off", !on); }
+      if (on) {
+        const p = clamp(y / ih, 0, 1);
+        if (S.dim) S.dim.style.opacity = (p * .75).toFixed(3);
+        if (S.move) S.move.style.transform = `translate3d(${(-M.x * 2.2).toFixed(3)}%,${(-M.y * 2.2 + p * 6).toFixed(3)}%,0) scale(${(1 + p * .06).toFixed(4)})`;
+        if (S.bottom) S.bottom.style.transform = `translate3d(${(M.x * .8).toFixed(3)}%,${(-p * 26).toFixed(2)}vh,0)`;
+        if (S.top) S.top.style.transform = `translate3d(${(M.x * 1.4).toFixed(3)}%,${(M.y * 6 - p * 30).toFixed(2)}px,0)`;
       }
     }
-    // statement lights up word by word
-    if (S.st && S.words.length) {
-      const r = S.st.getBoundingClientRect();
-      const q = clamp((ih * .82 - r.top) / (r.height + ih * .3), 0, 1), n = Math.round(q * S.words.length * 1.08);
-      if (n !== S.n) { S.words.forEach((w, k) => w.classList.toggle("lit", k < n)); S.n = n; }
+    if (moved) {
+      // header shade adapts to what is underneath it
+      const accent = L.contact && y + 46 > L.contact.t && y + 46 < L.contact.t + L.contact.h;
+      const tone = (accent ? "a" : "d") + (y > 30 || accent ? "1" : "0");
+      if (tone !== S.tone) { S.tone = tone; document.body.classList.toggle("nav-accent", accent); document.body.classList.toggle("nav-scrolled", tone[1] === "1"); }
+      // portrait drifts inside its arch and develops from duotone to colour
+      if (L.portrait && S.pin) {
+        const top = L.portrait.t - y;
+        if (top < ih && top + L.portrait.h > 0) {
+          const lim = L.archH * .085;
+          S.pin.style.transform = `translate3d(0,${clamp((top + L.portrait.h / 2 - ih / 2) * -.09, -lim, lim).toFixed(1)}px,0)`;
+          const q = Math.round(clamp((ih * .85 - top) / (ih * .75), 0, 1) * 20) / 20;
+          if (q !== S.q) { S.q = q; S.portrait.style.setProperty("--q", q); }
+        }
+      }
+      // statement lights up word by word
+      if (L.st && S.words.length) {
+        const top = L.st.t - y;
+        if (top < ih && top + L.st.h > 0) {
+          const q = clamp((ih * .82 - top) / (L.st.h + ih * .3), 0, 1), n = Math.round(q * S.words.length * 1.08);
+          if (n !== S.n) { const lo = Math.min(n, S.n < 0 ? 0 : S.n), hi = Math.max(n, S.n < 0 ? S.words.length : S.n); for (let k = lo; k < hi && k < S.words.length; k++) S.words[k].classList.toggle("lit", k < n); S.n = n; }
+        }
+      }
     }
-    // word strips move with scroll (and drift slowly)
-    for (const o of S.smq || []) { const x = (y * .5 + t * .025) % o.unit; o.tr.style.transform = `translate3d(${(o.dir > 0 ? -x : x - o.unit).toFixed(1)}px,0,0)`; }
+    // word strips move with scroll (only while on screen)
+    if (moved) S.smq.forEach((o, k) => {
+      const b = L.smq[k]; if (!b) return; const top = b.t - y;
+      if (top > ih || top + b.h < 0) return;
+      const x = (y * .5) % o.unit;
+      o.tr.style.transform = `translate3d(${(o.dir > 0 ? -x : x - o.unit).toFixed(1)}px,0,0)`;
+    });
 
     // project page: sticky camera pans across the active image
-    if (S.chs && S.chs.length && S.frames.length && innerWidth > 820) {
-      const mid = ih * .5; let k = 0, q = 0;
-      for (const c of S.chs) {
-        const r = c.getBoundingClientRect();
-        if (r.top <= mid && r.bottom > mid) { k = +c.dataset.f; q = (mid - r.top) / r.height; break; }
-        if (r.top > mid) break;
-        k = +c.dataset.f; q = 1;
+    if (L.chs.length && S.frames.length && innerWidth > 820 && (moved || mouse || S.camBusy)) {
+      const mid = y + ih * .5; let k = 0, q = 0;
+      for (const c of L.chs) {
+        if (c.t <= mid && c.t + c.h > mid) { k = c.f; q = (mid - c.t) / c.h; break; }
+        if (c.t > mid) break;
+        k = c.f; q = 1;
       }
       if (k !== S.active) {
         S.frames.forEach(f => f.classList.toggle("on", +f.dataset.f === k)); S.active = k;
@@ -318,11 +381,13 @@
         const cam = f.firstElementChild, paper = f.classList.contains("paper"), pat = PAT[k % PAT.length], a = paper ? .3 : 1;
         const tz = 1 + (paper ? .04 : .14) * q, tx = pat[0] * (q - .5) * 7 * a - M.x * 1.2, ty = pat[1] * (q - .5) * 5 * a - M.y * 1.2;
         const s = cam._s || (cam._s = { z: tz, x: tx, y: ty });
-        s.z = lerp(s.z, tz, .07); s.x = lerp(s.x, tx, .07); s.y = lerp(s.y, ty, .07);
+        const e = LITE ? 1 : .08;
+        s.z = lerp(s.z, tz, e); s.x = lerp(s.x, tx, e); s.y = lerp(s.y, ty, e);
+        S.camBusy = Math.abs(s.z - tz) + Math.abs(s.x - tx) + Math.abs(s.y - ty) > .002;
         cam.style.transform = `translate3d(${s.x.toFixed(3)}%,${s.y.toFixed(3)}%,0) scale(${s.z.toFixed(4)})`;
       }
-      if (S.left && S.prog) { const lr = S.left.getBoundingClientRect(); S.prog.style.setProperty("--q", clamp((mid - lr.top) / lr.height, 0, 1).toFixed(4)); }
-    }
+      if (moved && L.left && S.prog) S.prog.style.setProperty("--q", clamp((mid - L.left.t) / L.left.h, 0, 1).toFixed(4));
+    } else if (!L.chs.length) S.camBusy = false;
   }
   function raf(t) { if (lenis) lenis.raf(t); tick(t); requestAnimationFrame(raf); }
   requestAnimationFrame(raf);
@@ -334,14 +399,18 @@
       const w = el.getBoundingClientRect().width, pw = el.parentElement.clientWidth;
       if (w && pw) el.style.fontSize = (100 * pw / w * .995).toFixed(2) + "px";
     });
+    L.dirty = true;
   }
 
-  /* ---------- reveal on scroll ---------- */
-  let io;
+  /* ---------- reveal on scroll + pause things that are off screen ---------- */
+  let io, vis;
   function observe() {
     io && io.disconnect();
     io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: .12, rootMargin: "0px 0px -6% 0px" });
     $$(".rv").forEach(el => io.observe(el));
+    vis && vis.disconnect();
+    vis = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle("run", e.isIntersecting)), { rootMargin: "100px 0px" });
+    $$(".imq, .smq, #acc, .contact").forEach(el => vis.observe(el));
   }
 
   /* ---------- light (drawing) images get a paper background ---------- */
@@ -369,6 +438,7 @@
     if (slides.length < 2) return;
     let k = 0;
     heroTimer = setInterval(() => {
+      if (document.hidden || S.heroOn === false) return;   // paused while the hero is covered
       slides[k].classList.remove("on"); k = (k + 1) % slides.length; slides[k].classList.add("on");
       $("#capN").textContent = `Featured ${two(k + 1)} / ${two(hl.length)}`; $("#capT").textContent = hl[k].p.title; $("#heroCap").href = `#/p/${hl[k].p.slug}`;
       runBar();
@@ -378,26 +448,26 @@
     clearInterval(heroTimer); clearInterval(accTimer);
     if ($(".hero")) startHero();
 
-    // project accordion
-    const ps = $$(".panel");
+    // project accordion (auto-advances only while visible, never in lite mode)
+    const ps = $$(".panel"), acc = $("#acc");
     if (ps.length) {
       let k = 0, hover = false;
-      const set = i => { ps.forEach((p, j) => p.classList.toggle("on", i === j)); k = i; };
-      set(0);
+      const set = i => { if (i === k && ps[i].classList.contains("on")) return; ps.forEach((p, j) => p.classList.toggle("on", i === j)); k = i; };
+      ps[0].classList.add("on");
       ps.forEach((p, i) => { p.addEventListener("mouseenter", () => set(i)); p.addEventListener("focus", () => set(i)); });
-      const acc = $("#acc"); acc.addEventListener("mouseenter", () => hover = true); acc.addEventListener("mouseleave", () => hover = false);
-      accTimer = setInterval(() => { if (!hover && innerWidth > 820) set((k + 1) % ps.length); }, 4200);
+      acc.addEventListener("mouseenter", () => hover = true); acc.addEventListener("mouseleave", () => hover = false);
+      accTimer = setInterval(() => { if (!LITE && !hover && !document.hidden && innerWidth > 820 && acc.classList.contains("run")) set((k + 1) % ps.length); }, 4200);
     }
     // images fade in once loaded
-    $$("img.fade").forEach(im => { const ok = () => im.classList.add("ok"); if (im.complete && im.naturalWidth) ok(); else im.addEventListener("load", ok, { once: true }); });
+    $$("img.fade").forEach(im => { const ok = () => im.classList.add("ok"); if (im.complete && im.naturalWidth) ok(); else { im.addEventListener("load", ok, { once: true }); im.addEventListener("error", () => setTimeout(() => im.complete && im.naturalWidth && ok(), 50)); } });
     if (fine) {
       // buttons lean towards the cursor
       $$("[data-magnetic]").forEach(el => {
-        el.addEventListener("mousemove", e => { const r = el.getBoundingClientRect(); const dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2; el.style.transform = `translate3d(${dx * .22}px,${dy * .3}px,0)`; });
+        el.addEventListener("mousemove", e => { if (LITE) return; const r = el.getBoundingClientRect(); const dx = e.clientX - r.left - r.width / 2, dy = e.clientY - r.top - r.height / 2; el.style.transform = `translate3d(${dx * .22}px,${dy * .3}px,0)`; });
         el.addEventListener("mouseleave", () => { el.style.transform = ""; });
       });
       // open project strip pans with the mouse
-      ps.forEach(p => p.addEventListener("mousemove", e => { const r = p.getBoundingClientRect(); p.style.setProperty("--mx", ((e.clientX - r.left) / r.width - .5).toFixed(3)); p.style.setProperty("--my", ((e.clientY - r.top) / r.height - .5).toFixed(3)); }));
+      ps.forEach(p => p.addEventListener("mousemove", e => { if (LITE) return; const r = p.getBoundingClientRect(); p.style.setProperty("--mx", ((e.clientX - r.left) / r.width - .5).toFixed(3)); p.style.setProperty("--my", ((e.clientY - r.top) / r.height - .5).toFixed(3)); }));
     }
     // expertise rows
     $$(".xhead").forEach(b => b.onclick = () => {
@@ -440,32 +510,35 @@
     if (e.key === "Escape") setMenu(false);
   });
 
-  /* ---------- cursor ---------- */
+  /* ---------- cursor (only animates while the mouse moves) ---------- */
   const cur = $(".cursor");
   if (fine) {
-    let mx = -100, my = -100, cx = -100, cy = -100;
-    addEventListener("mousemove", e => { mx = e.clientX; my = e.clientY; cur.classList.add("show"); });
-    (function loop() { cx += (mx - cx) * .2; cy += (my - cy) * .2; cur.style.transform = `translate3d(${cx}px,${cy}px,0)`; requestAnimationFrame(loop); })();
+    let mx = -100, my = -100, cx = -100, cy = -100, running = false;
+    const loop = () => {
+      cx += (mx - cx) * .25; cy += (my - cy) * .25;
+      cur.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0)`;
+      if (Math.abs(mx - cx) + Math.abs(my - cy) > .3) requestAnimationFrame(loop); else running = false;
+    };
+    addEventListener("mousemove", e => { if (LITE) return; mx = e.clientX; my = e.clientY; cur.classList.add("show"); if (!running) { running = true; requestAnimationFrame(loop); } }, { passive: true });
     document.addEventListener("mouseover", e => { const t = e.target.closest("[data-cursor]"); cur.classList.toggle("big", !!t); if (t) cur.firstElementChild.textContent = t.dataset.cursor; });
   }
 
   /* ---------- loader (first visit in a session) ---------- */
   function runLoader(done) {
-    const L = $("#loader"); if (!L) return done();
+    const Ld = $("#loader"); if (!Ld) return done();
     let seen = false; try { seen = sessionStorage.getItem("lk-intro") === "1"; } catch (e) { }
-    if (seen || reduce) { L.remove(); return done(); }
+    if (seen || reduce) { Ld.remove(); return done(); }
     $("#ldYear").textContent = "© " + YEAR; $("#ldName").innerHTML = masked(SITE.name);
-    lock(true); requestAnimationFrame(() => requestAnimationFrame(() => L.classList.add("go")));
+    lock(true); requestAnimationFrame(() => requestAnimationFrame(() => Ld.classList.add("go")));
     const t0 = performance.now(); let ready = false;
-    const im = new Image(), loaded = new Promise(r => { im.onload = im.onerror = r; });
-    const pm = location.hash.match(/^#\/p\/([\w-]+)/), pi = pm ? PROJECTS.findIndex(p => p.slug === pm[1]) : -1, hl = heroList();
-    im.src = pi >= 0 ? cover(PROJECTS[pi], pi) : heroImg(hl[0].p, hl[0].i);
+    const im = $(".slide img, .p-media img");   // wait for the image the page actually shows
+    const loaded = new Promise(r => { if (!im || (im.complete && im.naturalWidth)) r(); else { im.addEventListener("load", r, { once: true }); im.addEventListener("error", () => setTimeout(r, 400), { once: true }); } });
     Promise.race([Promise.all([loaded, document.fonts ? document.fonts.ready : null]), new Promise(r => setTimeout(r, 5000))]).then(() => ready = true);
     (function step() {
-      let t = Math.min(1, (performance.now() - t0) / 2000); if (!ready) t = Math.min(t, .92);
-      const e = 1 - Math.pow(1 - t, 3); L.style.setProperty("--t", e.toFixed(3)); $("#ldCount").textContent = String(Math.round(e * 100)).padStart(3, "0");
+      let t = Math.min(1, (performance.now() - t0) / 1700); if (!ready) t = Math.min(t, .92);
+      const e = 1 - Math.pow(1 - t, 3); Ld.style.setProperty("--t", e.toFixed(3)); $("#ldCount").textContent = String(Math.round(e * 100)).padStart(3, "0");
       if (t < 1) return requestAnimationFrame(step);
-      setTimeout(() => { L.classList.add("out"); lock(false); try { sessionStorage.setItem("lk-intro", "1"); } catch (e) { } done(); setTimeout(() => L.remove(), 1300); }, 300);
+      setTimeout(() => { Ld.classList.add("out"); lock(false); try { sessionStorage.setItem("lk-intro", "1"); } catch (e) { } done(); setTimeout(() => Ld.remove(), 1300); }, 250);
     })();
   }
 
@@ -473,7 +546,7 @@
   let first = true, pending = null;
   function render() { const m = location.hash.match(/^#\/p\/([\w-]+)/); return m ? renderProject(m[1]) : (renderHome(), true); }
   function after() { cache(); fitAll(); observe(); bindPage(); }
-  function animateIn() { const h = $(".hero, .p-hero"); if (h) requestAnimationFrame(() => requestAnimationFrame(() => h.classList.add("go"))); }
+  function animateIn() { const h = $(".hero, .p-hero"); if (h) requestAnimationFrame(() => requestAnimationFrame(() => { h.classList.add("go"); setTimeout(() => h.classList.add("done"), 1900); })); }
   function jump() { scrollTop(); if (pending) { const id = pending; pending = null; setTimeout(() => scrollToId(id, true), 60); } }
   function route() {
     setMenu(false);
@@ -494,11 +567,12 @@
     else pending = a.dataset.go;
   });
   addEventListener("hashchange", route);
-  let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { fitAll(); measure(); }, 120); });
-  if (document.fonts) document.fonts.ready.then(() => { fitAll(); measure(); });
+  let rz; addEventListener("resize", () => { L.dirty = true; clearTimeout(rz); rz = setTimeout(fitAll, 120); });
+  if (document.fonts) document.fonts.ready.then(fitAll);
 
   $("#logo").textContent = SITE.name;
   if (DRAFT) document.body.append(Object.assign(document.createElement("div"), { className: "draft-badge", textContent: "Preview — not published yet" }));
   $("#curtainName").textContent = SITE.name;
+  window.__lk = { get lite() { return LITE; }, goLite, get lenis() { return !!lenis; } };   // for testing
   route();
 })(SITE, PROJECTS);

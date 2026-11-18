@@ -106,12 +106,18 @@
     let img;
     try { img = await createImageBitmap(file); } catch (e) { img = await loadImg(file).catch(() => null); }
     if (!img) throw new Error(`“${file.name}” couldn't be opened. Please export it as a JPG or PNG first (iPhone HEIC photos need converting).`);
-    const max = 2200, w0 = img.width, h0 = img.height, k = Math.min(1, max / Math.max(w0, h0));
-    const c = document.createElement("canvas"); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
-    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
-    const blob = await new Promise(r => c.toBlob(r, "image/jpeg", .84));
-    const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
-    return { b64, url: URL.createObjectURL(blob), size: blob.size };
+    const w0 = img.width, h0 = img.height;
+    const render = async (k, q) => {
+      const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w0 * k)); c.height = Math.max(1, Math.round(h0 * k));
+      const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+      const blob = await new Promise(r => c.toBlob(r, "image/jpeg", q));
+      const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(",")[1]); fr.readAsDataURL(blob); });
+      return { blob, b64 };
+    };
+    const full = await render(Math.min(1, 2200 / Math.max(w0, h0)), .84);
+    const md = await render(Math.min(1, 1600 / w0), .82);
+    const sm = await render(Math.min(1, 800 / w0), .8);
+    return { b64: full.b64, url: URL.createObjectURL(full.blob), size: full.blob.size, variants: { md: md.b64, sm: sm.b64 } };
   }
   async function addImage(file, dir) {
     try {
@@ -384,7 +390,7 @@
       card("Cover & slideshow", null,
         imageField(p, "cover", () => p.slug, "Cover photo", "Used on the home page strip and at the top of the project page."),
         field("Show in the home page slideshow?", heroSel), heroBox),
-      card("Photos", "Each photo becomes a chapter on the project page: its caption is the big title on the left while the photo pans on the right. Drag to reorder.",
+      card("Photos", "Each photo becomes a chapter on the project page: its title (and optional text) sit on the left while the photo pans on the right. Drag ⠿ to reorder.",
         imagesEditor(p)));
   }
   function uniqueSlug(base, self) { let s = base, n = 2; while (S.projects.some(q => q !== self && q.slug === s)) s = `${base}-${n++}`; return s; }
@@ -399,20 +405,23 @@
     const grid = h("div", { class: "igrid" });
     const draw = () => {
       const cards = p.images.map((m, i) => {
-        const cap = h("textarea", { rows: 2, placeholder: "Caption — shown as the chapter title" }); cap.value = m.caption || "";
+        const cap = h("textarea", { rows: 2, placeholder: "Title — e.g. Ground floor plan" }); cap.value = m.caption || "";
         cap.oninput = () => { m.caption = cap.value; markDirty(); };
+        const body = h("textarea", { rows: 3, class: "itext", placeholder: "Text (optional) — a few sentences about this image. Leave an empty line for a new paragraph." }); body.value = m.text || "";
+        body.oninput = () => { if (body.value.trim()) m.text = body.value; else delete m.text; markDirty(); };
         return h("div", { class: "icard" },
           h("div", { class: "ithumb" }, h("img", { src: src(m.src), alt: "", loading: "lazy" }), h("span", { class: "inum" }, two(i + 1)),
             p.cover === m.src ? h("span", { class: "badge" }, "Cover") : null, S.pending.has(m.src) ? h("span", { class: "new" }, "New") : null,
             h("span", { class: "handle", title: "Drag to reorder" }, "⠿")),
-          h("div", { class: "ibody" }, cap,
-            h("div", { class: "rowbtns" },
-              h("div", { class: "row" },
-                h("button", { class: "iconbtn", type: "button", title: "Move earlier", disabled: i === 0, onclick: () => move(p.images, i, -1) && draw() }, "←"),
-                h("button", { class: "iconbtn", type: "button", title: "Move later", disabled: i === p.images.length - 1, onclick: () => move(p.images, i, 1) && draw() }, "→")),
-              h("div", { class: "row" },
-                p.cover === m.src ? null : h("button", { class: "btn small ghost", type: "button", onclick: () => { p.cover = m.src; markDirty(); renderMain(); } }, "Make cover"),
-                h("button", { class: "iconbtn", type: "button", title: "Remove from project", onclick: () => { p.images.splice(i, 1); markDirty(); draw(); } }, "✕")))));
+          h("div", { class: "ibody" },
+            h("label", { class: "ilbl" }, "Title", cap),
+            h("label", { class: "ilbl" }, "Text", body),
+            h("div", { class: "itools" },
+              h("button", { class: "iconbtn", type: "button", title: "Move earlier", disabled: i === 0, onclick: () => move(p.images, i, -1) && draw() }, "←"),
+              h("button", { class: "iconbtn", type: "button", title: "Move later", disabled: i === p.images.length - 1, onclick: () => move(p.images, i, 1) && draw() }, "→"),
+              h("span", { class: "grow" }),
+              p.cover === m.src ? null : h("button", { class: "btn small ghost", type: "button", onclick: () => { p.cover = m.src; markDirty(); renderMain(); } }, "Make cover"),
+              h("button", { class: "iconbtn", type: "button", title: "Remove from project", onclick: () => { if (confirm("Remove this photo from the project?")) { p.images.splice(i, 1); markDirty(); draw(); } } }, "✕"))));
       });
       grid.replaceChildren(...cards);
       if (!cards.length) grid.replaceChildren(h("p", { class: "empty-note" }, "No photos yet — add some above."));
@@ -496,9 +505,13 @@
       const baseTree = (await gh(`${base}/git/commits/${head}`)).tree.sha;
       const tree = [], used = usedPaths(), uploads = [...S.pending].filter(([p]) => used.has(p));
       for (let k = 0; k < uploads.length; k++) {
-        step(`Uploading file ${k + 1} of ${uploads.length}`);
+        step(`Uploading photo ${k + 1} of ${uploads.length}`);
         const b = await gh(`${base}/git/blobs`, { method: "POST", body: JSON.stringify({ content: uploads[k][1].b64, encoding: "base64" }) });
         tree.push({ path: uploads[k][0], mode: "100644", type: "blob", sha: b.sha });
+        for (const [tag, data] of Object.entries(uploads[k][1].variants || {})) {
+          const vb = await gh(`${base}/git/blobs`, { method: "POST", body: JSON.stringify({ content: data, encoding: "base64" }) });
+          tree.push({ path: uploads[k][0].replace(/\.(jpe?g)$/i, `.${tag}.$1`), mode: "100644", type: "blob", sha: vb.sha });
+        }
       }
       step("Saving your text");
       const cb = await gh(`${base}/git/blobs`, { method: "POST", body: JSON.stringify({ content: buildContent(), encoding: "utf-8" }) });
