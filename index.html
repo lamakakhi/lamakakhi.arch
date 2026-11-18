@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lama Kakhi — Architect &amp; Urban Planner</title>
+<meta name="description" content="Architecture and urban planning portfolio of Lama Kakhi.">
+<meta property="og:title" content="Lama Kakhi — Architect &amp; Urban Planner">
+<meta property="og:description" content="Architecture and urban planning portfolio of Lama Kakhi.">
+<meta property="og:image" content="images/carved-by-wind/cover.jpg">
+<meta name="theme-color" content="#110c0a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/Chivo-Black.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/MozillaText-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css?v=8">
+</head>
+<body>
+
+<!-- intro loader (first visit only) -->
+<div class="loader" id="loader" aria-hidden="true">
+  <div class="ld-top"><span>Portfolio</span><span id="ldYear"></span></div>
+  <div class="ld-name" id="ldName"></div>
+  <div class="ld-bottom"><div class="ld-bar"><i></i></div><div class="ld-count" id="ldCount">000</div></div>
+</div>
+
+<!-- page transition wipe -->
+<div class="curtain" id="curtain" aria-hidden="true"><span id="curtainName"></span></div>
+
+<div class="cursor" aria-hidden="true"><span></span></div>
+<div class="progress" id="progress" aria-hidden="true"></div>
+
+<header class="nav">
+  <a href="#/" class="logo" id="logo" data-go="top"></a>
+  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="menu"><span class="roll"><span id="menuLabel" data-t="Menu">Menu</span></span><i></i></button>
+</header>
+
+<div class="menu" id="menu" aria-hidden="true">
+  <div class="menu-grid">
+    <nav class="menu-main">
+      <a href="#/" data-go="top"><b>01</b><span class="roll"><span data-t="Home">Home</span></span></a>
+      <a href="#/" data-go="work"><b>02</b><span class="roll"><span data-t="Work">Work</span></span></a>
+      <a href="#/" data-go="expertise"><b>03</b><span class="roll"><span data-t="Expertise">Expertise</span></span></a>
+      <a href="#/" data-go="about"><b>04</b><span class="roll"><span data-t="About">About</span></span></a>
+      <a href="#/" data-go="contact"><b>05</b><span class="roll"><span data-t="Contact">Contact</span></span></a>
+    </nav>
+    <div class="menu-side">
+      <p class="caps label">Projects</p>
+      <div id="menuProjects"></div>
+    </div>
+  </div>
+  <p class="menu-foot" id="menuFoot"></p>
+</div>
+
+<main id="view"></main>
+
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lb-close caps" aria-label="Close">Close ✕</button>
+  <button class="lb-prev" aria-label="Previous">←</button>
+  <figure><img alt=""><figcaption class="caps"></figcaption></figure>
+  <button class="lb-next" aria-label="Next">→</button>
+  <span class="lb-count caps" id="lbCount"></span>
+</div>
+
+<!-- smooth scrolling (optional: the site still works if this can't load) -->
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="js/content.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
+</body>
+</html>
