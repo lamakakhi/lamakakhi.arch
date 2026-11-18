@@ -125,7 +125,17 @@
 
       <section class="about" id="about">
         <div class="imq" style="--dur:${rowA.length * 9}s"><div class="imq-track">${imgs(rowA)}${imgs(rowA)}</div></div>
-        <div class="about-mid">
+        <div class="about-mid${SITE.about.photo ? " has-photo" : ""}">
+          ${SITE.about.photo ? `
+          <figure class="portrait rv">
+            <div class="arch-wrap">
+              <span class="arch-line" aria-hidden="true"></span>
+              <div class="arch"><div class="arch-in" role="img" aria-label="${esc(SITE.name)}" style="background-image:url('${esc(SITE.about.photo)}')"></div><div class="tone"></div></div>
+              <span class="dim dim-w" aria-hidden="true"><i></i><b>${esc(SITE.name)}</b><i></i></span>
+              <span class="dim dim-h" aria-hidden="true"><i></i><b>${esc(SITE.role)}</b><i></i></span>
+            </div>
+            <figcaption class="caps">Fig. 04 — Portrait</figcaption>
+          </figure>` : ""}
           <p class="caps label">(04) — About</p>
           <p class="about-lead rv">${esc(SITE.about.intro)}</p>
           <dl class="rv">${SITE.about.facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>
@@ -232,6 +242,7 @@
     S.words = $$(".st-text .w"); S.st = $(".st-text"); S.n = -1;
     S.smq = $$(".smq").map(el => ({ tr: el.firstElementChild, dir: +el.dataset.dir || 1, unit: 1 }));
     S.chs = $$(".ch"); S.frames = $$(".frame"); S.left = $(".p-left"); S.prog = $(".p-prog");
+    S.portrait = $(".portrait"); S.pin = $(".arch-in");
     S.hudCap = $("#hudCap"); S.hudN = $("#hudN"); S.active = -1; S.contact = $(".contact"); S.dark = null;
     measure();
   }
@@ -270,6 +281,14 @@
     }
     // header shade adapts to what is underneath it
     navTone(y);
+    // portrait drifts inside its arch and develops from duotone to colour
+    if (S.portrait && S.pin) {
+      const r = S.portrait.getBoundingClientRect();
+      if (r.bottom > 0 && r.top < ih) {
+        const lim = S.pin.parentElement.offsetHeight * .085; S.pin.style.transform = `translate3d(0,${clamp((r.top + r.height / 2 - ih / 2) * -.09, -lim, lim).toFixed(1)}px,0)`;
+        S.portrait.style.setProperty("--q", clamp((ih * .85 - r.top) / (ih * .75), 0, 1).toFixed(3));
+      }
+    }
     // statement lights up word by word
     if (S.st && S.words.length) {
       const r = S.st.getBoundingClientRect();

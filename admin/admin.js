@@ -67,7 +67,7 @@
   }
   function load(d) {
     const s = d.SITE;
-    s.about = s.about || { intro: "", facts: [] }; s.about.facts = s.about.facts || [];
+    s.about = s.about || { intro: "", facts: [] }; s.about.facts = s.about.facts || []; if (s.about.photo == null) s.about.photo = "";
     s.expertise = s.expertise || []; s.disciplines = s.disciplines || []; s.heroNotes = s.heroNotes || [];
     ["name", "role", "tagline", "statement", "email", "instagram", "linkedin", "cv"].forEach(k => { if (s[k] == null) s[k] = ""; });
     d.PROJECTS.forEach(p => { p.images = p.images || []; if (p.hero === undefined) p.hero = true; });
@@ -132,7 +132,7 @@
   function allImages() {
     const set = new Set();
     S.projects.forEach(p => { if (p.cover) set.add(p.cover); if (typeof p.hero === "string") set.add(p.hero); p.images.forEach(m => m.src && set.add(m.src)); });
-    S.site.expertise.forEach(x => x[2] && set.add(x[2]));
+    S.site.expertise.forEach(x => x[2] && set.add(x[2])); if (S.site.about.photo) set.add(S.site.about.photo);
     S.pending.forEach((v, k) => { if (/\.(jpe?g|png|webp)$/i.test(k)) set.add(k); });
     return [...set];
   }
@@ -324,6 +324,8 @@
     draw();
     return h("div", {},
       head("About", "The About section on the home page."),
+      card("Your photo", "Shown in an arched frame next to the About text. It starts in orange tones and turns to full colour as visitors scroll.",
+        imageField(a, "photo", () => "site", "Portrait", "A portrait photo (taller than wide) works best. Leave empty to hide.")),
       card("About text", null, field("Text", txt(a, "intro", { rows: 6 }))),
       card("Facts", "Shown next to the text — education, software, languages…", box,
         h("button", { class: "btn small", type: "button", onclick: () => { a.facts.push(["", ""]); markDirty(); draw(); } }, "＋ Add a fact")));

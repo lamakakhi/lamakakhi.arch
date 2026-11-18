@@ -29,6 +29,7 @@ const SITE = {
   cv: "",          // e.g. "lama-kakhi-portfolio.pdf" after uploading the file. Leave empty to hide
 
   about: {
+    photo: "images/site/portrait.jpg",   // your portrait (shown in the arched frame). Leave "" to hide
     intro: "I am an architect and urban planner with a background in architectural design, spatial planning, and sustainable building. My work combines creative design thinking with an understanding of urban environments and sustainability.",
     facts: [
       ["Education", "Bachelor's in Architecture · Master's in Spatial Planning, TU Dortmund University"],
@@ -43,9 +44,8 @@ const SITE = {
    last one, and change the text. The order here is the order on the site.
 
    Photos: put them in a folder  images/<project-slug>/  and list them in "images".
-     wide: true  -> photo goes full width
-     solo: true  -> photo is centred on its own row (good for tall images)
-     (neither)   -> two photos sit side by side
+   Each photo becomes a chapter on the project page — its "caption" is the
+   chapter title. (Easiest: use the site editor at your-site/admin.)
    "hero": true shows the project in the big slideshow on the home page.
    -------------------------------------------------------------------------- */
 const PROJECTS = [
